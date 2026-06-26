@@ -105,6 +105,8 @@ COMMAND_REGISTRY: list[CommandDef] = [
                aliases=("q",), args_hint="<prompt>"),
     CommandDef("steer", "Inject a message after the next tool call without interrupting", "Session",
                args_hint="<prompt>"),
+    CommandDef("interrupt", "Interrupt the agent mid-task and inject a new message", "Session",
+               aliases=("i",), args_hint="<message>"),
     CommandDef("goal", "Set a standing goal Hermes works on across turns until achieved", "Session",
                args_hint="[text | pause | resume | clear | status]"),
     CommandDef("subgoal", "Add or manage extra criteria on the active goal", "Session",
@@ -206,6 +208,17 @@ COMMAND_REGISTRY: list[CommandDef] = [
                subcommands=("connect", "disconnect", "status")),
     CommandDef("plugins", "List installed plugins and their status",
                "Tools & Skills", cli_only=True),
+    CommandDef("dream", "Extract persistent knowledge from recent sessions into memory, removing outdated entries",
+               "Tools & Skills", aliases=("dream-memory",),
+               args_hint="[--dry-run]", subcommands=("--dry-run",)),
+    CommandDef("distill", "Discover repeated workflows in recent sessions and package as reusable skills",
+               "Tools & Skills", aliases=("distill-skills",),
+               args_hint="[--dry-run]", subcommands=("--dry-run",)),
+
+    # API Key management
+    CommandDef("opencode-rotate", "Rotate OpenCode API keys (cycle to next key in the pool)",
+               "Tools & Skills", cli_only=True,
+               aliases=("rotate-key",)),
 
     # Info
     CommandDef("commands", "Browse all commands and skills (paginated)", "Info",

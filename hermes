@@ -6,6 +6,59 @@ This wrapper should behave like the installed `hermes` command, including
 subcommands such as `gateway`, `cron`, and `doctor`.
 """
 
+import os
+import sys
+
+def _maybe_reexec_in_venv() -> None:
+    """Detect and re-execute inside the project's virtual environment if not already running in it."""
+    # Find the directory containing this script, resolving symlinks.
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    
+    # Probes .venv, venv, and ~/.hermes/hermes-agent/venv (matches scripts/run_tests.sh)
+    candidates = [
+        os.path.join(script_dir, ".venv"),
+        os.path.join(script_dir, "venv"),
+        os.path.expanduser("~/.hermes/hermes-agent/venv"),
+    ]
+    
+    # Resolve all candidate paths that are actual directories
+    valid_candidates = []
+    for venv_dir in candidates:
+        if os.path.isdir(venv_dir):
+            valid_candidates.append(os.path.realpath(venv_dir))
+            
+    if not valid_candidates:
+        return
+
+    # If the current sys.prefix is already one of the valid virtual environments, do not re-exec
+    real_prefix = os.path.realpath(sys.prefix)
+    if real_prefix in valid_candidates:
+        return
+        
+    for venv_dir in candidates:
+        if not os.path.isdir(venv_dir):
+            continue
+            
+        # Determine the Python executable path within the virtualenv
+        if sys.platform == "win32":
+            venv_python = os.path.join(venv_dir, "Scripts", "python.exe")
+        else:
+            venv_python = os.path.join(venv_dir, "bin", "python")
+            
+        if os.path.exists(venv_python):
+            # Re-execute with the virtual environment's Python interpreter
+            os.execv(venv_python, [venv_python] + sys.argv)
+            break
+
 if __name__ == "__main__":
+    _maybe_reexec_in_venv()
+    
+    # Set up Windows UTF-8 bootstrap if present
+    try:
+        import hermes_bootstrap
+    except ImportError:
+        pass
+        
     from hermes_cli.main import main
     main()
+

@@ -447,6 +447,35 @@ class CLICommandsMixin:
         print(f"  Home:    {display}")
         print()
 
+    def _handle_opencode_rotate_command(self):
+        """Handle /opencode-rotate — rotate OpenCode API keys.
+
+        Runs the rotation script that cycles to the next API key in
+        the pool, updates .bashrc, Hermes .env files, and applies the
+        new key to the current session.
+        """
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["/mnt/data/opencode-rotate.sh"],
+                capture_output=True, text=True, timeout=30,
+            )
+            output = (result.stdout or "") + (result.stderr or "")
+            # Print each line — the script already has nice emoji formatting
+            for line in output.splitlines():
+                line = line.strip()
+                if line:
+                    print(f"  {line}")
+            if result.returncode != 0:
+                print(f"  ⚠️  Rotation script exited with code {result.returncode}")
+        except FileNotFoundError:
+            print("  ❌ Rotation script not found at /mnt/data/opencode-rotate.sh")
+            print("     Was the OpenCode key rotation system set up?")
+        except subprocess.TimeoutExpired:
+            print("  ⚠️  Rotation script timed out after 30s")
+        except Exception as e:
+            print(f"  ❌ Rotation failed: {e}")
+
     def _handle_handoff_command(self, cmd_original: str) -> bool:
         """Handle ``/handoff <platform>`` — transfer this CLI session to a gateway platform.
 
@@ -1327,6 +1356,46 @@ class CLICommandsMixin:
             pass
         except Exception as exc:
             print(f"(._.) curator: {exc}")
+
+    def _handle_dream_command(self, cmd: str):
+        """Handle /dream — scan sessions, extract knowledge, update memory."""
+        import shlex
+
+        try:
+            tokens = shlex.split(cmd)[1:] if cmd else []
+        except ValueError:
+            tokens = (cmd or "").split()[1:]
+        args = " ".join(tokens)
+        try:
+            from hermes_cli.dream_distill_cmd import handle_dream_command
+
+            result = handle_dream_command(args)
+        except Exception as e:
+            self._console_print(f"/dream failed: {e}")
+            return
+        self._console_print(result.text)
+        if result.agent_seed:
+            self._pending_agent_seed = result.agent_seed
+
+    def _handle_distill_command(self, cmd: str):
+        """Handle /distill — discover workflows, package as skills."""
+        import shlex
+
+        try:
+            tokens = shlex.split(cmd)[1:] if cmd else []
+        except ValueError:
+            tokens = (cmd or "").split()[1:]
+        args = " ".join(tokens)
+        try:
+            from hermes_cli.dream_distill_cmd import handle_distill_command
+
+            result = handle_distill_command(args)
+        except Exception as e:
+            self._console_print(f"/distill failed: {e}")
+            return
+        self._console_print(result.text)
+        if result.agent_seed:
+            self._pending_agent_seed = result.agent_seed
 
     def _handle_kanban_command(self, cmd: str):
         """Handle the /kanban command — delegate to the shared kanban CLI.

@@ -3757,46 +3757,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
             self._resize_recovery_pending = False
             self._recover_after_resize(app, original_on_resize)
 
-    @staticmethod
-    def _get_battery_info() -> Optional[Dict[str, Any]]:
-        """Read laptop battery info from sysfs. Returns None on desktops/VMs."""
-        try:
-            import os
-            supply_dir = '/sys/class/power_supply'
-            if not os.path.isdir(supply_dir):
-                return None
-            for bat in sorted(os.listdir(supply_dir)):
-                if bat.startswith('BAT') or 'bat' in bat.lower():
-                    cap_path = f'{supply_dir}/{bat}/capacity'
-                    status_path = f'{supply_dir}/{bat}/status'
-                    if os.path.isfile(cap_path) and os.path.isfile(status_path):
-                        pct = int(open(cap_path).read().strip())
-                        status = open(status_path).read().strip()
-                        return {'percent': pct, 'charging': status == 'Charging'}
-        except Exception:
-            pass
-        return None
-
-    @staticmethod
-    def _format_battery_label(battery_info: Optional[Dict[str, Any]]) -> str:
-        """Format battery status for the status bar. Returns '' if no battery."""
-        if battery_info is None:
-            return ''
-        pct = battery_info.get('percent', 0)
-        charging = battery_info.get('charging', False)
-        icon = '\U0001f50b' if charging else '\U0001faab'
-        return f'{icon}{pct}%'
-
-    @staticmethod
-    def _format_battery_from_snapshot(snapshot: Dict[str, Any]) -> str:
-        """Format battery label from a status bar snapshot dict."""
-        pct = snapshot.get('battery_pct')
-        if pct is None:
-            return ''
-        charging = snapshot.get('battery_charging', False)
-        icon = '\U0001f50b' if charging else '\U0001faab'
-        return f'{icon}{pct}%'
-
     def _status_bar_context_style(self, percent_used: Optional[int]) -> str:
         if percent_used is None:
             return "class:status-bar-dim"
@@ -3887,13 +3847,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
             model_short = f"{model_short[:23]}..."
 
         elapsed_seconds = max(0.0, (datetime.now() - self.session_start).total_seconds())
-        battery = self._get_battery_info()
         snapshot = {
             "model_name": model_name,
             "model_short": model_short,
             "duration": format_duration_compact(elapsed_seconds),
-            "battery_pct": battery["percent"] if battery else None,
-            "battery_charging": battery["charging"] if battery else None,
             "prompt_elapsed": self._format_prompt_elapsed(
                 getattr(self, "_prompt_start_time", None),
                 getattr(self, "_prompt_duration", 0.0),
@@ -4189,9 +4146,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
                 if bg_proc_count:
                     parts.append(f"⚙ {bg_proc_count}")
                 parts.append(duration_label)
-                battery_label = self._format_battery_from_snapshot(snapshot)
-                if battery_label:
-                    parts.append(battery_label)
                 if yolo_active:
                     parts.append("⚠ YOLO")
                 return self._trim_status_bar_text(" · ".join(parts), width)
@@ -4220,9 +4174,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
             idle_since = snapshot.get("idle_since")
             if idle_since:
                 parts.append(idle_since)
-            battery_label = self._format_battery_from_snapshot(snapshot)
-            if battery_label:
-                parts.append(battery_label)
             if yolo_active:
                 parts.append("⚠ YOLO")
             return self._trim_status_bar_text(" │ ".join(parts), width)
@@ -4280,10 +4231,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
                         ("class:status-bar-dim", " · "),
                         ("class:status-bar-dim", duration_label),
                     ])
-                    battery_label = self._format_battery_from_snapshot(snapshot)
-                    if battery_label:
-                        frags.append(("class:status-bar-dim", " · "))
-                        frags.append(("class:status-bar-dim", battery_label))
                     if yolo_active:
                         frags.append(("class:status-bar-dim", " · "))
                         frags.append(("class:status-bar-yolo", "⚠ YOLO"))
@@ -4333,10 +4280,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
                     if idle_since:
                         frags.append(("class:status-bar-dim", " │ "))
                         frags.append(("class:status-bar-dim", idle_since))
-                    battery_label = self._format_battery_from_snapshot(snapshot)
-                    if battery_label:
-                        frags.append(("class:status-bar-dim", " │ "))
-                        frags.append(("class:status-bar-dim", battery_label))
                     if yolo_active:
                         frags.append(("class:status-bar-dim", " │ "))
                         frags.append(("class:status-bar-yolo", "⚠ YOLO"))

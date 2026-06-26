@@ -15,6 +15,46 @@ from providers import register_provider
 from providers.base import ProviderProfile
 
 
+class OpenCodeZenProfile(ProviderProfile):
+    """OpenCode Zen - free tier models that don't need API auth."""
+
+    def fetch_models(
+        self,
+        *,
+        api_key: str | None = None,
+        timeout: float = 8.0,
+    ) -> list[str] | None:
+        """Fetch the model list from the public endpoint without auth.
+        
+        OpenCode Zen free tier model listing is public (no API key needed).
+        Sending auth headers actually breaks the request (403).
+        """
+        import json
+        import urllib.request
+
+        url = (self.models_url or "").strip()
+        if not url:
+            if not self.base_url:
+                return None
+            url = self.base_url.rstrip("/") + "/models"
+
+        req = urllib.request.Request(url)
+        req.add_header("Accept", "application/json")
+        req.add_header("User-Agent", "hermes-cli")
+        for k, v in self.default_headers.items():
+            req.add_header(k, v)
+
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode())
+            items = data if isinstance(data, list) else data.get("data", [])
+            return [m["id"] for m in items if isinstance(m, dict) and "id" in m]
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).debug("fetch_models(%s): %s", self.name, exc)
+            return None
+
+
 def _flat_model_name(model: str | None) -> str:
     """Return the bare OpenCode model ID, tolerating aggregator prefixes."""
     return (model or "").strip().rsplit("/", 1)[-1].lower()
@@ -112,6 +152,13 @@ opencode_zen = ProviderProfile(
     env_vars=("OPENCODE_ZEN_API_KEY",),
     base_url="https://opencode.ai/zen/v1",
     default_aux_model="gemini-3-flash",
+    fallback_models=(
+        "deepseek-v4-flash-free",
+        "mimo-v2.5-free",
+        "nemotron-3-ultra-free",
+        "north-mini-code-free",
+        "big-pickle",
+    ),
 )
 
 opencode_go = OpenCodeGoProfile(

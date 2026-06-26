@@ -251,7 +251,8 @@ class TestCLIStatusBar:
         )
         cli_obj._status_bar_visible = True
 
-        frags = cli_obj._get_status_bar_fragments()
+        with patch.object(HermesCLI, '_get_battery_info', return_value=None):
+            frags = cli_obj._get_status_bar_fragments()
         frag_texts = [text for _, text in frags]
 
         assert "🗜️ 7" in frag_texts
@@ -271,7 +272,8 @@ class TestCLIStatusBar:
         )
         cli_obj._status_bar_visible = True
 
-        frags = cli_obj._get_status_bar_fragments()
+        with patch.object(HermesCLI, '_get_battery_info', return_value=None):
+            frags = cli_obj._get_status_bar_fragments()
         frag_texts = [text for _, text in frags]
 
         assert not any("🗜️" in t for t in frag_texts)
@@ -535,6 +537,8 @@ class TestStatusBarWidthSource:
             context_length=200_000,
         )
         cli_obj._status_bar_visible = True
+        # Stub battery to avoid width overflow on machines with a real battery
+        cli_obj._get_battery_info = lambda: None
         return cli_obj
 
     def test_fragments_fit_within_announced_width(self):
