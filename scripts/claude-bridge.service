@@ -1,0 +1,24 @@
+[Unit]
+Description=Claude Code Bridge — wraps claude -p as an OpenAI-compatible API
+Documentation=https://github.com/NousResearch/hermes-agent/blob/main/scripts/claude-bridge.py
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sri
+WorkingDirectory=/home/sri/.hermes/hermes-agent/src/scripts
+ExecStart=/usr/bin/python3 /home/sri/.hermes/hermes-agent/src/scripts/claude-bridge.py
+
+Environment=HOME=/home/sri/.hermes/profiles/main/home
+Environment=CLAUDE_MODEL=opus
+Environment=PORT=8800
+Environment=TIMEOUT_SECONDS=300
+
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
